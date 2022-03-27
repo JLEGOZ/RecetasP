@@ -1,23 +1,33 @@
 package com.springboot.webflux.app.controllers;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.validation.Valid;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.support.WebExchangeBindException;
 
+import com.springboot.webflux.app.SpringBootWebfluxRecetasApplication;
 import com.springboot.webflux.app.models.dao.IngredienteDao;
 import com.springboot.webflux.app.models.dao.RacionDao;
 import com.springboot.webflux.app.models.dao.RecetaDao;
@@ -32,6 +42,8 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/receta-controller/recetas")
 public class RecetaController {
 	
+	private Logger log = LoggerFactory.getLogger(SpringBootWebfluxRecetasApplication.class);
+	
 	@Autowired
 	private RecetaDao recetaDao;
 	
@@ -41,10 +53,25 @@ public class RecetaController {
 	@Autowired
 	private IngredienteDao ingredienteDao;
 	
+	/*
 	@GetMapping
 	public Flux<Receta> listar() {
 		return recetaDao.findAll();
 	}
+	*/
+	@GetMapping
+	public Flux<Receta> recetaNombre(@RequestParam (required=false) Map<String,String> qparams) {
+		
+		qparams.forEach((a,b) -> {
+		        System.out.println(String.format("%s -> %s",a,b));
+		        
+		});
+		        String nombre = qparams.get("nombre");
+		        
+		        return recetaDao.findAll()
+		        					.filter(receta -> null!=nombre ? receta.getNombre().contains(nombre): true);
+		        					
+		}
 	
 	
 	@GetMapping("/{id}")
@@ -58,6 +85,7 @@ public class RecetaController {
 	          })
 				.defaultIfEmpty(ResponseEntity.notFound().build());
 	}
+	
 	
 	@PostMapping
 	public Mono<ResponseEntity<Map<String, Object>>> crear(@Valid @RequestBody Mono<Receta> monoReceta) {
@@ -81,6 +109,92 @@ public class RecetaController {
 			return generarError(ex);
 
 		});
+	}
+	@PutMapping("raciones/{id}")
+	public Mono<ResponseEntity<Map<String, Object>>> editarRaciones(@PathVariable String id) {
+		Map<String, Object> respuesta = new HashMap<String, Object>();	
+		
+		
+					return recetaDao.findById(id)
+		
+		          .flatMap(rec -> {
+		        	  			rec.setRaciones(null);
+		        	  			
+		        	  			return recetaDao.save(rec);
+		        	  			
+		          })
+		          .defaultIfEmpty(new Receta())
+		          .map(prod -> {
+		        	  if(null == prod.getId()) {
+		        		  	
+							respuesta.put("mensaje", "no existe la receta id"+id);
+							respuesta.put("timestamp", new Date());
+							
+							return ResponseEntity.status(HttpStatus.NOT_FOUND)
+									.contentType(MediaType.APPLICATION_JSON)
+									.body(respuesta);
+		        	  }
+		        	  
+		        	  
+		        		respuesta.put("Raciones ", prod);
+						respuesta.put("mensaje", "edicion éxito");
+						respuesta.put("timestamp", new Date());
+		        	  
+						return ResponseEntity
+								.ok()
+								.contentType(MediaType.APPLICATION_JSON)
+								.body(respuesta);
+		        	  
+		          }).onErrorResume(ex -> {
+		        	  return generarError(ex);
+		          
+			});
+		          
+	}
+	
+	@PutMapping("/{id}")
+	public Mono<ResponseEntity<Map<String, Object>>> editar(@PathVariable String id, @Valid @RequestBody Mono<Receta> monoReceta) {
+		Map<String, Object> respuesta = new HashMap<String, Object>();	
+		
+		return monoReceta
+				.flatMap(receta ->{
+				
+					return recetaDao.findById(id)
+		
+		          .flatMap(rec -> {
+		        	  			rec.setNombre(receta.getNombre());
+		        	  			rec.setDificultad(receta.getDificultad());
+		        	  			rec.setTiempoPreparacion(receta.getTiempoPreparacion());
+		        	  			rec.setRaciones(receta.getRaciones());
+		        	  			rec.setDescripcion(receta.getDescripcion());
+		        	  			
+		        	  			return recetaDao.save(rec);
+		        	  			
+		          })
+		          .defaultIfEmpty(new Receta())
+		          .map(prod -> {
+		        	  if(null == prod.getId()) {
+		        		  	
+							respuesta.put("mensaje", "no existe la receta id"+id);
+							respuesta.put("timestamp", new Date());
+							
+							return ResponseEntity.status(HttpStatus.NOT_FOUND)
+									.contentType(MediaType.APPLICATION_JSON)
+									.body(respuesta);
+		        	  }
+		        		respuesta.put("Receta ", prod);
+						respuesta.put("mensaje", "edicion éxito");
+						respuesta.put("timestamp", new Date());
+		        	  
+						return ResponseEntity
+								.ok()
+								.contentType(MediaType.APPLICATION_JSON)
+								.body(respuesta); 
+		          });
+		          }).onErrorResume(ex -> {
+		        	  return generarError(ex);
+			});
+		          
 	}
 	
 	@GetMapping("/ingredientes")
@@ -157,5 +271,43 @@ public class RecetaController {
 					return Mono.just(ResponseEntity.badRequest().body(respuesta));
 				});
 	}
+	@GetMapping("/recRaciones/{id}")
+	public Mono<ResponseEntity<List<Racion>>> listarRacionesReceta(@PathVariable String id) {
+		return  recetaDao.findById(id)
+		.map(receta -> {
+      	  return ResponseEntity
+      			  .ok()
+      			  .contentType(MediaType.APPLICATION_JSON)
+      			  .body(receta.getRaciones());
+		})
+		.defaultIfEmpty(ResponseEntity.notFound().build());
+	}
+
+	@DeleteMapping("/eliminar/{id}")
+	public Mono<String> eliminar(@PathVariable String id) {
+	return recetaDao.findById(id)
+			.defaultIfEmpty(new Receta())
+	          .flatMap(receta -> {
+	        	  if(null == receta.getId())
+	        		   return Mono.error(new InterruptedException("No se localizo la receta:" + id));
+	           log.info("Producto a eliminar: Id["+receta.getId()+" Nombre:"+receta.getNombre());
+	           return recetaDao.delete(receta);
+	          })
+              .thenReturn("redirect:/listar?success=Baja_Exitosa")
+              .onErrorResume(exception -> {
+                  String message = exception.getMessage();
+                  
+                  try {
+					message = URLEncoder.encode(message, "UTF8");
+				} catch (UnsupportedEncodingException e) {
+					// TODO Auto-generated catch block
+					message = "Error";
+				}
+                  
+                  return Mono.just("redirect:/listar?error="+message);  
+                 });
+	}
+	
+	
 
 }
