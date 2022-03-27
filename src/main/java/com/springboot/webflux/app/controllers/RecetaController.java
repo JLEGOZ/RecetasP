@@ -5,6 +5,7 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.validation.Valid;
@@ -167,14 +168,15 @@ public class RecetaController {
 	
 
 	@GetMapping("/recRaciones/{id}")
-	public Mono<Object> listarRacionesReceta(@PathVariable String id) {
+	public Mono<ResponseEntity<List<Racion>>> listarRacionesReceta(@PathVariable String id) {
 		return  recetaDao.findById(id)
 		.map(receta -> {
       	  return ResponseEntity
       			  .ok()
       			  .contentType(MediaType.APPLICATION_JSON)
       			  .body(receta.getRaciones());
-		});
+		})
+		.defaultIfEmpty(ResponseEntity.notFound().build());
 		/*
 		return racionDao.findAll()
 				.filter(racion -> { racion.
