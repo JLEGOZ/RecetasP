@@ -45,14 +45,7 @@ public class RecetaController {
 	public Flux<Receta> listar() {
 		return recetaDao.findAll();
 	}
-	@GetMapping("/ingredientes")
-	public Flux<Ingrediente> listarIngredientes() {
-		return ingredienteDao.findAll();
-	}
-	@GetMapping("/raciones")
-	public Flux<Racion> listarRaciones() {
-		return racionDao.findAll();
-	}
+	
 	
 	@GetMapping("/{id}")
 	public Mono<ResponseEntity<Receta>> consultar(@PathVariable String id) {
@@ -76,6 +69,66 @@ public class RecetaController {
 							.map(prod -> {
 
 								respuesta.put("receta", receta);
+								respuesta.put("mensaje", "Alta exitosa");
+								respuesta.put("timestamp", new Date());
+
+								return ResponseEntity
+										.created(URI.create("/receta-controller/recetas/" + prod.getId()))
+										.contentType(MediaType.APPLICATION_JSON)
+										.body(respuesta);
+			});
+		}).onErrorResume(ex -> {
+			return generarError(ex);
+
+		});
+	}
+	
+	@GetMapping("/ingredientes")
+	public Flux<Ingrediente> listarIngredientes() {
+		return ingredienteDao.findAll();
+		
+	}
+	
+	@PostMapping("/ingredientes")
+	public Mono<ResponseEntity<Map<String, Object>>> crearIngredientes(@Valid @RequestBody Mono<Ingrediente> monoIngrediete) {
+		Map<String, Object> respuesta = new HashMap<String, Object>();
+		
+		return monoIngrediete
+				.flatMap(ingrediente -> {
+					return ingredienteDao
+							.save(ingrediente)
+							.map(prod -> {
+
+								respuesta.put("ingrediente", ingrediente);
+								respuesta.put("mensaje", "Alta exitosa");
+								respuesta.put("timestamp", new Date());
+
+								return ResponseEntity
+										.created(URI.create("/receta-controller/recetas/" + prod.getId()))
+										.contentType(MediaType.APPLICATION_JSON)
+										.body(respuesta);
+			});
+		}).onErrorResume(ex -> {
+			return generarError(ex);
+
+		});
+	}
+	@GetMapping("/raciones")
+	public Flux<Racion> listarRaciones() {
+		return racionDao.findAll();
+	}
+	
+	@PostMapping("/raciones")
+	public Mono<ResponseEntity<Map<String, Object>>> crearRacion(@Valid @RequestBody Mono<Racion> monoRacion) {
+		Map<String, Object> respuesta = new HashMap<String, Object>();
+		
+		return monoRacion
+				.flatMap(racion -> {
+					return racionDao
+							.save(racion)
+							.map(prod -> {
+
+								respuesta.put("racion", racion);
 								respuesta.put("mensaje", "Alta exitosa");
 								respuesta.put("timestamp", new Date());
 
